@@ -1,0 +1,186 @@
+FORMAT: 1A
+
+# Coursera Mutibo Server
+Server-side data storage and exchange for the Mutibo movie game project. 
+This API handles the game mechanics and data storage for Mutibo, verifies the answers and ends the game, if needed.
+
+
+## User sign-up via social networks [/register?auth_type={type}&app_token={app_token}]
+### Fetch a new or existing user account from the data provided by the specified social media [POST]
+Should receive access tokens from Facebook (would also be nice to add Twitter and Google in the future), verify them 
+and assign the app-specific user account to the user, or send the 401 Unauthorized error status code.
+
++ Parameters
+    + app_token (string) Third-party service access token, needed for account verification
+    + auth_type (string) Third-party service name, can be either "GOOGLE", "FACEBOOK" or "TWITTER"
+        
++ Response 201 (application/json)
+
+        { 
+            "id": 324,
+            "username": "John Smith",
+            "password": "456435rtgfdghcgw5yyretydfgcvb",
+            "externalId": "34545634563456" // User ID at the third-party social networking service
+            "lastScore": 15,
+            "highScore": 32,
+            "numGames": 4
+        }  
+        
++ Response 401  
+
+
+## OAuth 2.0 authentication [/oauth/token]
+### Authenticate a user by password grant flow before approving game queries [POST]
+
++ Headers
+
+        Authorization: Basic Sm9obiBTbWl0aDo0NTY0MzVydGdmZGdoY2d3NXl5cmV0eWRmZ2N2Yg==
+
++ Request (application/json)
+
+        {
+            "client_id": "mobile",
+            "client_secret": "some_client_secret",
+            "username": "John Smith",
+            "password": "456435rtgfdghcgw5yyretydfgcvb",
+            "grant_type": "password"
+        }
+
++ Response 201 (application/json)
+
+        {
+            "data": {
+                "access_token": "sample_token_1fw35fhnf80w35hynaihsnrsg0q8tg24hryn",
+                "refresh_token": "do_we_really_need it?",
+                "token_type": "bearer"
+            }
+        }
+
+## Game sessions [/game]
+A game is a sequence of actions (guesses) on movie Sets, which lasts until the user makes 3 incorrect guesses
+
+### Start a new game [POST]
+Starts a new game session (or continues the unfinished one) and returns the game data in JSON wrapping, 
+or sends the 401 error if the token is incorrect
+
++ Headers
+
+        Authorization: Bearer sample_token_1fw35fhnf80w35hynaihsnrsg0q8tg24hryn
+
++ Response 201 (application/json)
+
+        { 
+            "id": 10750,
+            "score": 3,
+            "wrongAnswers": 1
+        }  
+        
++ Response 401 
+
+
+## Game session question [/game/{id}/set]
+### Fetching a next Set of movies for the Game [GET]
+Returns the next pseudo-random Set from the DB that has not yet been used in this Game as a success, 
+404 if the game was not found, or 401 if the token is incorrect
+
++ Headers
+
+        Authorization: Bearer sample_token_1fw35fhnf80w35hynaihsnrsg0q8tg24hryn
+
++ Parameters
+
+    + id (integer) Game session ID
+    
++ Response 200 (application/json)
+
+        { 
+            "id": 34564,
+            "movies": [
+                {"id": "25621", "title": "A good movie", "posterUrl": "http://example.com/somePoster.png", "language": "en", country: "us"}, 
+                {"id": "25621", "title": "A nice movie", "posterUrl": "http://example.com/somePoster.png", "language": "en", country: "us"}, 
+                {"id": "76334", "title": "SomeMovie", "posterUrl": "http://example.com/somePoster.png", "language": "en", country: "us"}, 
+                {"id": "25621", "title": "A very nice movie", "posterUrl": "http://example.com/somePoster.png", "language": "en", country: "us"}, 
+                ], 
+            "answer": "76334",
+            "explanation": "SomeMovie was not based on a book, unlike the other three",
+        }  
+        
++ Response 404
++ Response 401
+
+## Game session action [/game/{id}/set/{set_id}?answer={answer}]
+### Answering a question from the set with a particular option [POST]
+Responds with a 200 HTTP status and a JSON message on success, 404 if a game or a set were not found,
+or 401 if the token is incorrect
+
++ Headers
+
+        Authorization: Bearer sample_token_1fw35fhnf80w35hynaihsnrsg0q8tg24hryn
+
++ Response 200 (application/json)
+        
+        {
+            "status": 0, // 0 if the answer was correct, 1 if it was incorrect, 2 if the game is over after a 3rd incorrect answer
+            "score": 10,
+            "hasBeenRated": 0 //0 if this user hasn't rated this set yet, 1 if he/she had already done it before
+        }
++ Response 404
++ Response 401
+
+## Sets of movies [/set]
+### Adding a new Set to Mutibo server [POST]
+
++ Headers
+
+        Authorization: Bearer sample_token_1fw35fhnf80w35hynaihsnrsg0q8tg24hryn
+
++ Request (application/json)
+
+        { 
+            "movies": [
+                {"id": "25621", "title": "A good movie", "posterUrl": "http://example.com/somePoster.png", "language": "en", country: "us"}, 
+                {"id": "25621", "title": "A nice movie", "posterUrl": "http://example.com/somePoster.png", "language": "en", country: "us"}, 
+                {"id": "76334", "title": "SomeMovie", "posterUrl": "http://example.com/somePoster.png", "language": "en", country: "us"}, 
+                {"id": "25621", "title": "A very nice movie", "posterUrl": "http://example.com/somePoster.png", "language": "en", country: "us"}, 
+                ], 
+            "answer": "76334",
+            "explanation": "SomeMovie was not based on a book, unlike the other three",
+        } 
+        
++ Response 200 (application/json)
+
+        { 
+            "id": 34564,
+            "movies": [
+                {"id": "25621", "title": "A good movie", "posterUrl": "http://example.com/somePoster.png", "language": "en", country: "us"}, 
+                {"id": "25621", "title": "A nice movie", "posterUrl": "http://example.com/somePoster.png", "language": "en", country: "us"}, 
+                {"id": "76334", "title": "SomeMovie", "posterUrl": "http://example.com/somePoster.png", "language": "en", country: "us"}, 
+                {"id": "25621", "title": "A very nice movie", "posterUrl": "http://example.com/somePoster.png", "language": "en", country: "us"}, 
+                ], 
+            "answer": "76334",
+            "explanation": "SomeMovie was not based on a book, unlike the other three",
+        }  
+        
++ Response 401
+
+
+## Single Set rating [/set/{id}?vote={vote}]
+### Casting a vote on a Set, whether it was good or not [PUT]
+Responds with 204 HTTP code on success, 404 if the set was not found, 
+400 if the vote parameter has a disallowed value or the user has already voted on this set, 
+and 401 if the token is incorrect.
+
++ Headers
+
+        Authorization: Bearer sample_token_1fw35fhnf80w35hynaihsnrsg0q8tg24hryn
+
++ Parameters
+
+    + id (integer) Set ID
+    + vote (boolean) false if a user did not like this set, true if he/she did
+    
++ Response 204
++ Response 404
++ Response 400
++ Response 401
+
